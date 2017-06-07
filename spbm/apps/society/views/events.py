@@ -4,9 +4,11 @@ from django.db import transaction
 from django.forms.formsets import formset_factory
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import CreateView
+from extra_views import CreateWithInlinesView
 
+from helpers.mixins import LoggedInPermissionsMixin
 from spbm.helpers.auth import user_allowed_society
-from ..forms.events import EventForm, MakeShiftBase
+from ..forms.events import EventForm, make_shift_base, InlineShiftForm
 from ..models import Society, Event, Shift
 
 
@@ -29,12 +31,68 @@ def index(request, society_name=None):
                   {'processed': processed, 'events': events_by_date, 'cur_page': 'events'})
 
 
-class EventAddView(LoginRequiredMixin, CreateView):
+class EventAddView(LoginRequiredMixin, CreateWithInlinesView):
     template_name = "events/add.jinja"
-    form_class = EventForm
+    model = Event
+    fields = ['name', 'date']
+    inlines = [InlineShiftForm]
 
-        # society = request.user.spfuser.society if society_name is None \
-        #     else get_object_or_404(Society, shortname=society_name)
+
+class EventAddViewPlain(LoggedInPermissionsMixin, CreateView):
+    template_name = "events/add.jinja"
+    # Following only relevant to extra_views
+    model = Event
+    inlines = [InlineShiftForm]
+    fields = ['name', 'date']
+
+    _society = None
+    _user = None
+
+    def has_permission(self):
+        return user_allowed_society(self._user, self._society)
+
+    def dispatch(self, request, *args, **kwargs):
+        self._society = request.user.spfuser.society if 'society_name' not in kwargs \
+            else get_object_or_404(Society, shortname=kwargs['society_name'])
+        self._user = request.user
+        return super(EventAddView, self).dispatch(request, *args, **kwargs)
+
+    def get(self, request, *args, **kwargs):
+        event_form = EventForm(prefix='event')
+        shift_formset = formset_factory(make_shift_base(self._society), min_num=6, max_num=12)(
+            prefix='shift')
+        # return super(EventAddView, self).get(request, *args, **kwargs)
+        return render(request, "events/add.jinja", {'form': event_form,
+                                                    'inlines': [shift_formset]})
+
+    def post(self, request, *args, **kwargs):
+        event_form = EventForm(request.POST, prefix="event")
+        shift_formset = formset_factory(make_shift_base(self._society), min_num=6, max_num=12)(
+            request.POST, prefix='shift')
+        if event_form.is_valid():
+            with transaction.atomic():
+                event = event_form.save(commit=False)
+                event.society = self._society
+                event.save()
+
+                for shift in shift_formset:
+                    if not shift.is_valid():
+                        continue
+
+                    if "worker" not in shift.cleaned_data:
+                        continue
+
+                    print(shift.cleaned_data['worker'])
+                    db_shift = Shift()
+                    db_shift.event = event
+                    db_shift.worker = shift.cleaned_data['worker']
+                    db_shift.wage = shift.cleaned_data['wage']
+                    db_shift.hours = shift.cleaned_data['hours']
+                    db_shift.save()
+                return redirect(index)
+        else:
+            return render(request, "events/add.jinja", {'form': event_form,
+                                                        'inlines': [shift_formset]})
 
 
 @login_required
@@ -45,8 +103,8 @@ def add(request, society_name=None):
     if not user_allowed_society(request.user, society):
         return render(request, "errors/unauthorized.jinja")
 
-    event_form = formset_factory(EventForm, min_num=1, max_num=1)
-    shift_form = formset_factory(MakeShiftBase(society), min_num=6, max_num=12)
+    event_form = EventForm
+    shift_form = formset_factory(make_shift_base(society), min_num=6, max_num=12)
 
     if request.method == "POST":
         event_formset = event_form(request.POST, prefix="event")

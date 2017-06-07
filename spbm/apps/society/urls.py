@@ -29,7 +29,7 @@ event_urls = [
     url(r'^$', events.index, name='events'),
     url(r'^add/$', events.EventAddView.as_view(), name='events-add'),
     url(r'^' + society_match + r'$', events.index, name='events'),
-    url(r'^' + society_match + r'add/$', events.add, name='events-add'),
+    url(r'^' + society_match + r'add/$', events.EventAddView.as_view(), name='events-add'),
 ]
 
 invoicing_urls = [

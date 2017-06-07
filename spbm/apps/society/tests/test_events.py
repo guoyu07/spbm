@@ -53,7 +53,7 @@ class EventLoggedInTests(TestCase):
         adding_event = self.client.post(reverse('events-add'), event_data, follow=True)
         self.assertEqual(adding_event.status_code, self.HTTP_OK)
         last_event = Event.objects.last()
-        self.assertEqual(last_event.name, "Magical Test Event")
+        self.assertEqual("Magical Test Event", last_event.name)
         self.assertTrue(last_event.date)
         self.assertEqual(last_event.shifts.count(), 1)
 
@@ -75,8 +75,8 @@ class EventLoggedInTests(TestCase):
             'shift-TOTAL_FORMS': 2,
             'shift-INITIAL_FORMS': 0
         }
-        with self.assertRaises(IntegrityError):
-            added_event = self.client.post(reverse('events-add'), event_data, follow=True)
+        with self.assertRaises(IntegrityError, msg="Duplicate data POSTed didn't fail"):
+            self.client.post(reverse('events-add'), event_data, follow=True)
 
 
 class EventLoggedOutTests(TestCase):
