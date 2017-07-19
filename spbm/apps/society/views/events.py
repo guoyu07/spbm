@@ -87,7 +87,14 @@ class EventUpdateView(LoginAndPermissionRequiredMixin, UpdateWithInlinesView):
 class EventViewView(LoginRequiredMixin, DetailView):
     template_name = "events/view.jinja"
     model = Event
+    queryset = Event.objects.filter(society_id=1)
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        event = context['object']
+        next = event.get_next_by_date()
+        previous = event.get_previous_by_date()
+        return context
 
 class EventDeleteView(LoginRequiredMixin, DeleteView):
     template_name = "events/delete.jinja"
