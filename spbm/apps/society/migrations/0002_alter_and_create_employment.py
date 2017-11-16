@@ -50,7 +50,7 @@ def create_employment(apps, schema_editor):
             print(" - Deactivation: {name} ({sn}): {id}".format(name=dups.name, sn=dups.society.shortname, id=dups.id))
             dups.active = False
             dups.name = "DUPLICATE: " + dups.name
-            dups.person_id = ""
+            dups.person_id = None
             dups.save()
 
     # Last, but not least, create Employment relationships for all non-duplicates
@@ -116,6 +116,12 @@ class Migration(migrations.Migration):
         migrations.AlterUniqueTogether(
             name='employment',
             unique_together={('worker', 'society')},
+        ),
+        # Allow for nulling out
+        migrations.AlterField(
+            model_name='worker',
+            name='person_id',
+            field=models.CharField(blank=True, null=True, max_length=20, unique=True, verbose_name='person id'),
         ),
         # The most important part: one-way migration.
         migrations.RunPython(
