@@ -105,7 +105,7 @@
                             {{ invoice.period | localize }}
                             <span class="glyphicon glyphicon-transfer" style="margin-left: 10px;"></span>
                             <span class="sr-only">{{ _("Amount") }}:</span>
-                            {{ _("NOK %(cost)s", cost=invoice.get_total_cost()|intcomma) }}
+                            {{ _("NOK %(cost)s", cost=invoice.total_cost | intcomma) }}
                         </div>
                     {% endfor %}
                 </div>
@@ -129,7 +129,7 @@
     <p>
     </p>
     <table class="table table-hover table-responsive">
-        <caption>
+        <caption>unpaid_invoices_with_cost
             {% trans %}
                 Overview over all the various invoices that <em>should have</em>
                 been sent to the respective societies.
@@ -164,7 +164,7 @@
                     <th>
                         {{ invoice.society.name }}
                     </th>
-                    <td class="text-right">{{ _('NOK %(cost)s', cost=invoice.get_total_cost() | intcomma | localize) }}</td>
+                    <td class="text-right">{{ _('NOK %(cost)s', cost=invoice.total_cost | intcomma | localize) }}</td>
                     <td>
                         {%- if invoice.paid -%}
                             <span class="glyphicon glyphicon-ok"></span> {{ _("Yes") }}

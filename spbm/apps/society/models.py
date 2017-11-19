@@ -4,6 +4,7 @@ from django.contrib.auth.models import User, AbstractUser
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models import Sum, Avg, F
 from django.urls import reverse
 from django.utils import six
 from django.utils.functional import lazy
@@ -135,13 +136,12 @@ class Invoice(models.Model):
         Calculates the cost for an event, including the percentage fee.
         :return: Decimal of total event cost, including the fee.
         """
-        cost = 0
-        events = Event.objects.filter(invoice=self)
+        costs = self.events.all() \
+            .aggregate(total_cost=Sum(F('shifts__hours') * F('shifts__wage'),
+                                      output_field=models.FloatField())) \
+            .get('total_cost')
 
-        for event in events:
-            cost += event.cost
-
-        return (Decimal(cost) * Decimal('1.3')).quantize(Decimal('.01'))
+        return (Decimal(costs) * Decimal('1.3')).quantize(Decimal('.01'))
 
     def get_total_event_cost(self):
         """

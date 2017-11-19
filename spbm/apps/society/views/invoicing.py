@@ -8,9 +8,9 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db import IntegrityError
+from django.db import IntegrityError, models
 from django.db import transaction
-from django.db.models import Max
+from django.db.models import Max, Count, Sum, Avg, F
 from django.http import HttpResponse
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
@@ -50,8 +50,9 @@ class InvoicingView(LoginRequiredMixin, TemplateView):
         today = datetime.date.today()
         next_period = datetime.date(last_period.year, last_period.month,
                                     settings.SPBM['dates']['invoicing']) + relativedelta(months=1)
+
         # Fixes the no events in period problem
-        if ((Event.objects.filter(processed__isnull=True).count()) == False):
+        if (Event.objects.filter(processed__isnull=True).count()) == False:
             while next_period < today:
                 next_period += relativedelta(months=1)
 
@@ -60,13 +61,22 @@ class InvoicingView(LoginRequiredMixin, TemplateView):
         else:
             warning = None
 
+        # Uses SUM over each invoices series of shifts hours and shift wages
+        invoices_with_cost_annotation = Invoice.objects.all().annotate(
+            total_cost=Sum(F('events__shifts__hours') * F('events__shifts__wage'),
+                           output_field=models.DecimalField(decimal_places=2))).select_related()
+
+        unpaid_invoices_with_cost_annotation = Invoice.objects.filter(paid=False).annotate(
+            total_cost=Sum(F('events__shifts__hours') * F('events__shifts__wage'),
+                           output_field=models.DecimalField(decimal_places=2))).select_related()
+
         return {
             'progress': (today - last_period) / (next_period - last_period),
             'days_left': next_period - today,
             'warning': warning,
             'unprocessed_events': Event.objects.filter(processed__isnull=True).count(),
-            'unpaid_invoices': Invoice.objects.filter(paid=False),
-            'all_invoices': Invoice.objects.all(),
+            'unpaid_invoices': unpaid_invoices_with_cost_annotation,
+            'all_invoices': invoices_with_cost_annotation,
         }
 
     @transaction.atomic
