@@ -1,9 +1,9 @@
 from django.urls import path, re_path, include
 
 from spbm.apps.norlonn import views as wages
-from .views import views_overview as overview, workers, \
+from .views import overview as overview, workers, \
     events, invoicing
-from .views.views_overview import index as standard_index
+from .views.overview import index as standard_index
 
 # TODO: Create intermediate class to decouple current wage system from wage reporting
 
